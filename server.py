@@ -19,6 +19,8 @@ def now():
 
 def handler(conn, addr, flag):
 	global curPlayer
+
+	conn.settimeout(300)
 	data = conn.recv(1024)
 	if not data: conn.close(); return
 	print(f"Received [{data}] from {addr} at {now()}")
@@ -32,15 +34,22 @@ def handler(conn, addr, flag):
 	conn.send(Codes.BEGIN_CODE)
 
 	while True:
-		while conn != players[curPlayer]:
-			time.sleep(0.1) ## wait for turn
-		conn.send(Codes.TURN_CODE)
-		k = conn.recv(1)
-		curPlayer = not curPlayer
-		players[curPlayer].send(Codes.DATA_UPDATE)
-		players[curPlayer].send(k)
-
-	conn.close()
+			try:
+				while conn != players[curPlayer]:
+					time.sleep(0.1) ## wait for turn
+				conn.send(Codes.TURN_CODE)
+				k = conn.recv(1)
+				curPlayer = not curPlayer
+				players[curPlayer].send(Codes.DATA_UPDATE)
+				players[curPlayer].send(k)
+			except:
+				conn.close()
+				break;
+			# print(f"Clossing {addr}")
+			# players.remove(conn)
+			# conn.close()
+			# players[0].send(Codes.TURN_OFF)
+			# players[0].close()
 
 def run():
 	while len(players) != 2:

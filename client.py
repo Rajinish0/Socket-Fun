@@ -113,6 +113,9 @@ class Game:
 					self.board[d] = OP
 				case Codes.TURN_CODE:
 					self.myTurn = True
+				case Codes.TURN_OFF:
+					print("Other player disconnected")
+					self.running = False
 				case _:
 					print('ERROR CODE, exiting')
 					self.running = False
@@ -149,11 +152,11 @@ class Game:
 
 
 	def checkForGameEnd(self):
-		if (self.gameEnd or
-			(BLANK not in self.board) or
-			self.checkRows()  or
-	  		self.checkCols()  or 
-			self.checkDiags()):
+		if (self.gameEnd     or
+		   self.checkRows()  or
+	  	   self.checkCols()  or 
+		   self.checkDiags() or
+		  (BLANK not in self.board)):
 			self.gameEnd = True
 
 	def initHandler(self):
@@ -196,6 +199,9 @@ class Game:
 
 			if event.type == pygame.MOUSEBUTTONDOWN:
 				self.mouseDown = True
+	
+	def __del__(self):
+		self.sckobj.close()
 
 
 if __name__ == '__main__':
