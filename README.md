@@ -1,5 +1,5 @@
 # For Game2
-{var} means that is is a variable
+{var} means that it is a variable
 ## CLIENT TO SERVER GRAMMAR
 	request ::= request_line
 	request_line ::= start | options id
