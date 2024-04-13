@@ -4,14 +4,16 @@
 	request ::= request_line
 	request_line ::= start | options id
 	start ::= CONNECT
-	id ::= {UUID}
+	id ::= DATA ID_LEN {UUID}
 	options ::= GET get_options | STORE data | KMS 
 	get_options ::= POS | FOREIGN_PLAYERS
 	data ::= DATA CONTENT_LENGTH {DATA}
 
 ## SERVER TO CLIENT GRAMMAR
-	response ::= response_line
+	start ::= response_line | request_line
+ 	request_line ::= DEL id
 	response_line ::= KYS | options
-	options ::= data | STORE data | DEL id
-	id ::= {UUID}
-	data ::= DATA CONTENT_LENGTH {ACTUAL_DATA}
+	options ::= data | STORE data | foreigners
+	id ::= DATA ID_LEN {UUID}
+ 	foreigners ::= FOREIGN_PLAYERS id data
+	data ::= DATA CONTENT_LENGTH {DATA}
