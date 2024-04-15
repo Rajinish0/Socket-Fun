@@ -1,5 +1,5 @@
 from socket import *
-import time, threading, uuid, pickle, random
+import time, threading, uuid, pickle, random, sys
 from constants import S_constants as S, C_constants as C
 from utils import *
 from player import Player
@@ -12,6 +12,9 @@ playerConns = {}
 threads = []
 CHUNK_SZ = 1024
 W, H = 20, 20
+
+# outputFile = open('serverlogs.txt', 'w')
+# sys.stdout = outputFile
 
 def now():
 	return time.ctime(time.time())
@@ -44,8 +47,9 @@ def sendId(conn):
 
 def sendPos(conn, id_):
 	r = (random.randint(1, 200), random.randint(1, 200) )
-	print(f'SENDING {r}')
-	sendData(conn, r)
+	d = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+	print(f'SENDING {r} {d}')
+	sendData(conn, (r, d) )
 
 def handleGet(conn):
 	#if len(msg) == 0: return
@@ -68,6 +72,13 @@ def sendObjToOthers(id_, obj):
 		sendData(conn, id_)
 		sendData(conn, obj)
 
+def sendUpdateToOthers(id_, obj):
+	for uid, conn in playerConns.items():
+		if id_ != uid:
+			conn.send(S.UPDATE)
+			sendData(conn, id_)
+			sendData(conn, obj)
+
 def parseMsg(conn, msg):
 	global players, playerConns
 	#print(f'parsing {msg, msg[0], C.CONNECT, msg[0] == C.CONNECT}')
@@ -84,13 +95,22 @@ def parseMsg(conn, msg):
 			id_ = getData(conn)
 			# print('SENDING OBJECT TO EVERYONE')
 			# print(playerConns)
-			sendObjToOthers(id_, obj)
 			print('player conns now: ', playerConns)
 			players[id_] = obj
 			playerConns[id_] = conn
+			sendObjToOthers(id_, obj)
 			print(f'GOT obj from {id_}')
-		# case C.UPDATE:
-		# 	pass
+		case C.UPDATE:
+			obj = getData(conn)
+			id_ = getData(conn)
+			players[id_] = obj
+			sendUpdateToOthers(id_, obj)
+		case C.VERIFY:
+			# print('YES GOT VERIFY')
+			obj = getData(conn)
+			id_ = getData(conn)
+			players[id_] = obj
+			# conn.send(S.ACPT)
 	return None
 
 def sendDelToOthers(id_):
@@ -105,11 +125,10 @@ def handler(conn, addr):
 	id_ = None
 	while True:
 		msg = conn.recv(1)
-		print(f'RECEVIED {msg} from {addr}')
-		#print(f"Recevied {msg}")
 		if not msg: break
 		prse = parseMsg(conn, msg)
 		id_ = (id_ or prse)
+
 	print(f'Closing connection with {addr}')
 	sendDelToOthers(id_)
 	del players[id_]
