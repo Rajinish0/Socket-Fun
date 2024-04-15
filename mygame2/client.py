@@ -1,6 +1,6 @@
 from socket import *
 from constants import S_constants as S, C_constants as C
-import pickle, uuid, time, pygame, threading
+import pickle, uuid, time, pygame, threading, sys
 from utils import *
 from player import Player
 
@@ -8,6 +8,9 @@ from player import Player
 HOST = 'localhost'
 PORT = 50007
 UNQ_LEN = 36
+
+# outputFile = open('clientlogs.txt', 'w')
+# sys.stdout = outputFile
 
 '''
 {var} means it is some variable
@@ -54,7 +57,7 @@ def sendData(sckobj, data):
 	L = str(len(bytes_)).zfill(5).encode()
 	sckobj.send(S.DATA + L)
 	sendMsg(sckobj, bytes_)
-	print(f'SENT {data} to server')
+	# print(f'SENT {data} to server')
 
 def parseSize(sckobj):
 	'''
@@ -98,7 +101,11 @@ class Client:
 		self.initPlayer()
 		self.getForeigners()
 		self.sendMySelf()
+		self.sendLock = threading.Lock()
+		self.getLock = threading.Lock()
+		# self.sckobj.settimeout(0.5)
 		self.initalizeRequestListener()
+		self.initalizePositionVerifier()
 		self.dx = 0.1
 		self.dy = 0.1
 		self.run = True
@@ -109,30 +116,73 @@ class Client:
 		self.sckobj.send(msg)
 		sendData(self.sckobj, self.uid)
 		data = self.sckobj.recv(1+5)
-		pos = parseData(self.sckobj, data)
-		self.player = Player(pos)
+		pos, direc = parseData(self.sckobj, data)
+		self.player = Player(pos, direc)
 		print(f'received pos= {pos}')
+
+	def positionVerifier(self):
+		while True:
+			with self.sendLock:
+				# self.sckobj.settimeout(2)
+				msg = C.VERIFY
+				self.sckobj.send(msg)
+				sendData(self.sckobj, (self.player.pos,
+									   self.player.dir))
+				sendData(self.sckobj, self.uid)
+			time.sleep(0.2)
+				# rmsg = self.sckobj.recv(1)
+				# match rmsg[0:1]:					
+					# case S.ACPT:
+						# pass
+						# print('YES IT GOT ACCEPTED')
+					# case S.RJCT:
+						# pass
+				# self.sckobj.settimeout(0.5)
+			# time.sleep(0.5)
+
 
 	def requestListener(self):
 		while True:
-			msg = self.sckobj.recv(1)
-			print(f'received {msg}')
-			match msg[0:1]:
-				case S.FOREIGN_PLAYERS:
-					print('PARSING OBJ')
-					id_ = getData(self.sckobj)
-					obj = getData(self.sckobj)
-					self.foreigners[id_] = obj
-					print('PARSED OBJ')
-				case S.DEL:
-					print('RECVIED REQ TO DELETE')
-					idToRem = getData(self.sckobj)
-					del self.foreigners[idToRem]
-					print(f'DELETED foreigner {idToRem}')
-					print(self.foreigners)
+			with self.getLock:
+				msg = self.sckobj.recv(1)
+				# print(f'received {msg}')
+				match msg[0:1]:
+					case S.FOREIGN_PLAYERS:
+						print('PARSING OBJ')
+						id_ = getData(self.sckobj)
+						(pos, direc) = getData(self.sckobj)
+						self.foreigners[id_] = Player(pos, direc)
+						print('PARSED OBJ')
+					case S.UPDATE:
+						id_ = getData(self.sckobj)
+						(pos, direc) = getData(self.sckobj)
+						self.foreigners[id_].pos = pos
+						self.foreigners[id_].dir = direc
+					case S.DEL:
+						print('RECVIED REQ TO DELETE')
+						idToRem = getData(self.sckobj)
+						del self.foreigners[idToRem]
+						print(f'DELETED foreigner {idToRem}')
+						print(self.foreigners)
+					case S.ACPT:
+						pass
+						# print('YES IT GOT ACCEPTED')
+					case S.RJCT:
+						pass
+				# case S.VERIFY:
+				# 	with self.sendLock:
+				# 		sendData(self.sckobj, (self.player.pos,
+				# 							   self.player.dir) )
+					# pass
+			# time.sleep(0.5)
 
 	def initalizeRequestListener(self):
 		thread = threading.Thread(target=Client.requestListener, args=(self, ))
+		thread.daemon = True
+		thread.start()
+
+	def initalizePositionVerifier(self):
+		thread = threading.Thread(target=Client.positionVerifier, args=(self, ))
 		thread.daemon = True
 		thread.start()
 
@@ -141,18 +191,28 @@ class Client:
 		self.sckobj.send(msg)
 		sendData(self.sckobj, self.uid)
 		data = self.sckobj.recv(1+5)
-		self.foreigners = parseData(self.sckobj, data)
+		foreigners = parseData(self.sckobj, data)
+		self.foreigners = {
+			id_: Player(pos, direc) for id_, (pos, direc) in foreigners.items()
+		}
 		print(f'GOT FOREIGNERS {self.foreigners}')
 
+	def sendMyUpdate(self):
+		msg = C.UPDATE
+		with self.sendLock:
+			self.sckobj.send(msg)
+			sendData(self.sckobj, (self.player.pos, self.player.dir))
+			sendData(self.sckobj, self.uid)
+
 	def sendUpdate(self):
-		th = threading.Thread(target = Client.sendMySelf, args=(self, ))
+		th = threading.Thread(target = Client.sendMyUpdate, args=(self, ))
 		th.daemon = True
 		th.start()
 
 	def sendMySelf(self):
 		msg = C.STORE
 		self.sckobj.send(msg)
-		sendData(self.sckobj, self.player)	
+		sendData(self.sckobj, (self.player.pos, self.player.dir))
 		sendData(self.sckobj, self.uid)
 		#sendMsg(self.sckobj, myself)
 
@@ -162,28 +222,44 @@ class Client:
 				self.run = False
 		reqUpdt = False
 		keys = pygame.key.get_pressed()
+		pdir = self.player.dir
 		if keys[pygame.K_w]:
-			self.player.move( (0, -self.dy) )
-			reqUpdt = True
+			# reqUpdt = self.player.dir != (0, -1)
+			self.player.dir = (0, -1)
+			# self.player.move( (0, -self.dy) )
 		if keys[pygame.K_s]:
-			self.player.move( (0,  self.dy) )
-			reqUpdt = True
+			# reqUpdt = self.player.dir != (0, 1)
+			self.player.dir = (0, 1)
+			# self.player.move( (0,  self.dy) )
+			# reqUpdt = True
 		if keys[pygame.K_a]:
-			self.player.move( (-self.dx ,0) )
-			reqUpdt = True
+			# reqUpdt = self.player.dir != (-1, 0)
+			self.player.dir = (-1 ,0)
+			# self.player.move( (-self.dx ,0) )
+			# reqUpdt = True
 		if keys[pygame.K_d]:
-			self.player.move( (self.dx, 0) )
-			reqUpdt = True
+			# reqUpdt = self.player.dir != (1, 0)
+			self.player.dir = (1, 0)
+			# self.player.move( (self.dx, 0) )
+			# reqUpdt = True
 
+		reqUpdt = (pdir != self.player.dir)
 		if reqUpdt:
 			self.sendUpdate()
 
 	def mainLoop(self):
+		lastTime = time.time()
 		while self.run:
+			dt = time.time() - lastTime
+			lastTime = time.time()
 			self.display.fill((0, 0, 0))
 			self.pollEvents()
+			self.player.update(dt)
 			self.player.draw(self.display)
-			self.player.drawForeigners(self.display, self.foreigners)
+			for foreigner in self.foreigners.values():
+				foreigner.update(dt)
+				foreigner.draw(self.display)
+			# self.player.drawForeigners(self.display, self.foreigners)
 			pygame.display.flip()
 
 

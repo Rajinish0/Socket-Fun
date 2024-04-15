@@ -6,9 +6,14 @@ class C_constants:
 	FOREIGN_PLAYERS = b'F'
 	STORE			= b'S'
 	UPDATE 			= b'U'
+	VERIFY			= b'V'
 
 class S_constants:
 	KYS 			= b'K'
 	DATA 			= b'D'
 	FOREIGN_PLAYERS = b'F'
 	DEL				= b'R'
+	ACPT			= b'A'
+	RJCT			= b'J'
+	UPDATE 			= b'U'
+	VERIFY 			= b'V'
