@@ -1,6 +1,6 @@
 from socket import *
 import time, threading, uuid, pickle, random, sys
-from constants import S_constants as S, C_constants as C
+from constants import S_constants as S, C_constants as C, W, H
 from utils import *
 from player import Player
 
@@ -11,7 +11,7 @@ players = {}
 playerConns = {}
 threads = []
 CHUNK_SZ = 1024
-W, H = 20, 20
+foodPos = (400, 300)
 
 # outputFile = open('serverlogs.txt', 'w')
 # sys.stdout = outputFile
@@ -46,10 +46,10 @@ def sendId(conn):
 	return newid
 
 def sendPos(conn, id_):
-	r = (random.randint(1, 200), random.randint(1, 200) )
-	d = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
-	print(f'SENDING {r} {d}')
-	sendData(conn, (r, d) )
+	pos = (random.randint(1, 200), random.randint(1, 200) )
+	direc = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+	print(f'SENDING {pos} {direc} {foodPos}')
+	sendData(conn, (pos, direc, foodPos) )
 
 def handleGet(conn):
 	#if len(msg) == 0: return
@@ -79,8 +79,14 @@ def sendUpdateToOthers(id_, obj):
 			sendData(conn, id_)
 			sendData(conn, obj)
 
-def parseMsg(conn, msg):
-	global players, playerConns
+def sendFoodUpadteToEveryone():
+	msg = S.FOOD_UPDATE
+	for id_, conn in playerConns.items():
+		conn.send(msg)
+		sendData(conn, foodPos)
+
+def parseMsg(conn, msg, sendLock):
+	global players, playerConns, foodPos
 	#print(f'parsing {msg, msg[0], C.CONNECT, msg[0] == C.CONNECT}')
 	if len(msg) == 0: return
 	opt = msg[0:1]
@@ -98,18 +104,24 @@ def parseMsg(conn, msg):
 			print('player conns now: ', playerConns)
 			players[id_] = obj
 			playerConns[id_] = conn
-			sendObjToOthers(id_, obj)
+			with sendLock:
+				sendObjToOthers(id_, obj)
 			print(f'GOT obj from {id_}')
 		case C.UPDATE:
 			obj = getData(conn)
 			id_ = getData(conn)
 			players[id_] = obj
-			sendUpdateToOthers(id_, obj)
+			with sendLock:
+				sendUpdateToOthers(id_, obj)
 		case C.VERIFY:
 			# print('YES GOT VERIFY')
 			obj = getData(conn)
 			id_ = getData(conn)
 			players[id_] = obj
+		case C.EAT:
+			foodPos = (random.randint(1, W), random.randint(1, H))
+			with sendLock:
+				sendFoodUpadteToEveryone()
 			# conn.send(S.ACPT)
 	return None
 
@@ -123,14 +135,16 @@ def sendDelToOthers(id_):
 def handler(conn, addr):
 	global players
 	id_ = None
+	sendLock = threading.Lock()
 	while True:
 		msg = conn.recv(1)
 		if not msg: break
-		prse = parseMsg(conn, msg)
+		prse = parseMsg(conn, msg, sendLock)
 		id_ = (id_ or prse)
 
 	print(f'Closing connection with {addr}')
-	sendDelToOthers(id_)
+	with sendLock:
+		sendDelToOthers(id_)
 	del players[id_]
 	del playerConns[id_]
 	conn.close()

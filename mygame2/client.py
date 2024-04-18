@@ -1,5 +1,5 @@
 from socket import *
-from constants import S_constants as S, C_constants as C
+from constants import S_constants as S, C_constants as C, W, H
 import pickle, uuid, time, pygame, threading, sys
 from utils import *
 from player import Player
@@ -109,15 +109,16 @@ class Client:
 		self.dx = 0.1
 		self.dy = 0.1
 		self.run = True
-		self.display = pygame.display.set_mode((800, 600))
+		self.display = pygame.display.set_mode((W, H))
 
 	def initPlayer(self):
 		msg = C.GET + C.POS
 		self.sckobj.send(msg)
 		sendData(self.sckobj, self.uid)
 		data = self.sckobj.recv(1+5)
-		pos, direc = parseData(self.sckobj, data)
+		pos, direc, foodPos = parseData(self.sckobj, data)
 		self.player = Player(pos, direc)
+		self.foodPos = foodPos
 		print(f'received pos= {pos}')
 
 	def positionVerifier(self):
@@ -164,6 +165,8 @@ class Client:
 						del self.foreigners[idToRem]
 						print(f'DELETED foreigner {idToRem}')
 						print(self.foreigners)
+					case S.FOOD_UPDATE:
+						self.foodPos = getData(self.sckobj)
 					case S.ACPT:
 						pass
 						# print('YES IT GOT ACCEPTED')
@@ -247,6 +250,15 @@ class Client:
 		if reqUpdt:
 			self.sendUpdate()
 
+	def _sendFUpdate(self):
+		with self.sendLock:
+			self.sckobj.send(C.EAT)
+
+	def sendFoodUpdate(self):
+		thread = threading.Thread(target=Client._sendFUpdate, args=(self,))
+		thread.daemon = True
+		thread.start()
+
 	def mainLoop(self):
 		lastTime = time.time()
 		while self.run:
@@ -255,10 +267,13 @@ class Client:
 			self.display.fill((0, 0, 0))
 			self.pollEvents()
 			self.player.update(dt)
+			if self.player.checkForFood(self.foodPos):
+				self.sendFoodUpdate()
 			self.player.draw(self.display)
 			for foreigner in self.foreigners.values():
 				foreigner.update(dt)
 				foreigner.draw(self.display)
+			pygame.draw.circle(self.display, (0, 255, 0), self.foodPos, 4)
 			# self.player.drawForeigners(self.display, self.foreigners)
 			pygame.display.flip()
 

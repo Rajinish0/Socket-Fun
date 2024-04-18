@@ -2,7 +2,7 @@
 {var} means that it is a variable
 ## CLIENT TO SERVER GRAMMAR
 	request ::= request_line
-	request_line ::= start | options id
+	request_line ::= start | options id | EAT
 	start ::= CONNECT
 	id ::= DATA ID_LEN {UUID}
 	options ::= GET get_options | STORE data(obj) | KMS | UPDATE data(direction) | VERIFY data(position)
@@ -13,11 +13,12 @@
 	start ::= response_line | request_line
  	request_line ::= req_options id
 	response_line ::= resp_options
-	req_options ::= DEL | update | KYS | ACPT | RJCT
+	req_options ::= DEL | update | KYS | ACPT | RJCT | food_update
 	resp_options ::= KYS | data
 	update ::= UPDATE data(position) data(direction)
 	id ::= DATA ID_LEN {UUID}
  	foreigners ::= FOREIGN_PLAYERS id data
+	food_update ::= FOOD_UPDATE data(foodPos)
 	data(x) ::= DATA CONTENT_LENGTH {x}
 
 
