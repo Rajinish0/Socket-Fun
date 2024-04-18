@@ -7,6 +7,7 @@ class C_constants:
 	STORE			= b'S'
 	UPDATE 			= b'U'
 	VERIFY			= b'V'
+	EAT				= b'E'
 
 class S_constants:
 	KYS 			= b'K'
@@ -17,3 +18,6 @@ class S_constants:
 	RJCT			= b'J'
 	UPDATE 			= b'U'
 	VERIFY 			= b'V'
+	FOOD_UPDATE		= b'O'
+
+W, H = 600, 600
