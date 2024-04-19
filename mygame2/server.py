@@ -11,7 +11,8 @@ players = {}
 playerConns = {}
 threads = []
 CHUNK_SZ = 1024
-foodPos = (400, 300)
+foodPos = (random.randint(0, W//20)*20 + 10, 
+		   random.randint(0, H//20)*20 + 10)
 
 # outputFile = open('serverlogs.txt', 'w')
 # sys.stdout = outputFile
@@ -46,7 +47,7 @@ def sendId(conn):
 	return newid
 
 def sendPos(conn, id_):
-	pos = (random.randint(1, 200), random.randint(1, 200) )
+	pos = [[random.randint(0, W//20)*20, random.randint(0, H//20)*20]]
 	direc = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
 	print(f'SENDING {pos} {direc} {foodPos}')
 	sendData(conn, (pos, direc, foodPos) )
@@ -79,10 +80,11 @@ def sendUpdateToOthers(id_, obj):
 			sendData(conn, id_)
 			sendData(conn, obj)
 
-def sendFoodUpadteToEveryone():
+def sendFoodUpadteToEveryone(uid):
 	msg = S.FOOD_UPDATE
 	for id_, conn in playerConns.items():
 		conn.send(msg)
+		sendData(conn, uid)
 		sendData(conn, foodPos)
 
 def parseMsg(conn, msg, sendLock):
@@ -119,9 +121,11 @@ def parseMsg(conn, msg, sendLock):
 			id_ = getData(conn)
 			players[id_] = obj
 		case C.EAT:
-			foodPos = (random.randint(1, W), random.randint(1, H))
+			id_ = getData(conn)
+			foodPos = (random.randint(0, (W-1)//20)*20 + 10, 
+					   random.randint(0, (H-1)//20)*20 + 10)
 			with sendLock:
-				sendFoodUpadteToEveryone()
+				sendFoodUpadteToEveryone(id_)
 			# conn.send(S.ACPT)
 	return None
 

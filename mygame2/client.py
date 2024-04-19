@@ -9,6 +9,7 @@ HOST = 'localhost'
 PORT = 50007
 UNQ_LEN = 36
 
+clock = pygame.time.Clock()
 # outputFile = open('clientlogs.txt', 'w')
 # sys.stdout = outputFile
 
@@ -97,6 +98,7 @@ def connectToServer():
 class Client:
 	def __init__(self):
 		self.sckobj, self.uid = connectToServer()
+		# self.lastPos = Queue()
 		print(f"I received my id {self.uid}")
 		self.initPlayer()
 		self.getForeigners()
@@ -127,7 +129,7 @@ class Client:
 				# self.sckobj.settimeout(2)
 				msg = C.VERIFY
 				self.sckobj.send(msg)
-				sendData(self.sckobj, (self.player.pos,
+				sendData(self.sckobj, (self.player.body,
 									   self.player.dir))
 				sendData(self.sckobj, self.uid)
 			time.sleep(0.2)
@@ -157,7 +159,7 @@ class Client:
 					case S.UPDATE:
 						id_ = getData(self.sckobj)
 						(pos, direc) = getData(self.sckobj)
-						self.foreigners[id_].pos = pos
+						self.foreigners[id_].body = pos
 						self.foreigners[id_].dir = direc
 					case S.DEL:
 						print('RECVIED REQ TO DELETE')
@@ -166,7 +168,12 @@ class Client:
 						print(f'DELETED foreigner {idToRem}')
 						print(self.foreigners)
 					case S.FOOD_UPDATE:
+						uid = getData(self.sckobj)
 						self.foodPos = getData(self.sckobj)
+						if self.uid == uid:
+							self.player.inc()
+						else:
+							self.foreigners[uid].inc()
 					case S.ACPT:
 						pass
 						# print('YES IT GOT ACCEPTED')
@@ -204,7 +211,7 @@ class Client:
 		msg = C.UPDATE
 		with self.sendLock:
 			self.sckobj.send(msg)
-			sendData(self.sckobj, (self.player.pos, self.player.dir))
+			sendData(self.sckobj, (self.player.body, self.player.dir))
 			sendData(self.sckobj, self.uid)
 
 	def sendUpdate(self):
@@ -215,7 +222,7 @@ class Client:
 	def sendMySelf(self):
 		msg = C.STORE
 		self.sckobj.send(msg)
-		sendData(self.sckobj, (self.player.pos, self.player.dir))
+		sendData(self.sckobj, (self.player.body, self.player.dir))
 		sendData(self.sckobj, self.uid)
 		#sendMsg(self.sckobj, myself)
 
@@ -253,6 +260,7 @@ class Client:
 	def _sendFUpdate(self):
 		with self.sendLock:
 			self.sckobj.send(C.EAT)
+			sendData(self.sckobj, self.uid)
 
 	def sendFoodUpdate(self):
 		thread = threading.Thread(target=Client._sendFUpdate, args=(self,))
@@ -276,6 +284,7 @@ class Client:
 			pygame.draw.circle(self.display, (0, 255, 0), self.foodPos, 4)
 			# self.player.drawForeigners(self.display, self.foreigners)
 			pygame.display.flip()
+			clock.tick(10)
 
 
 
