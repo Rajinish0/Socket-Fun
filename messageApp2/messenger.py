@@ -3,6 +3,8 @@ from socket import *
 import sys, pprint, threading
 import codes, time, os
 
+# ideally exit or quit should be typed to exit this
+# ctrl + c leaves a trail of error msgs, but it works
 
 HOST = "localhost"
 PORT = 50008
