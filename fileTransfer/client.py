@@ -52,7 +52,7 @@ def requestBlocks(conn, addr, fileSize, maxBlockSize, blockCount):
 		blocks[reqNum] = packet.block
 		print(f'Dowloaded {round( (len(blocks)/blockCount) * 100, 2) }%', end='\r')
 	
-	#print('')
+	print('')
 	return blocks
 
 def setUpPath(path):
