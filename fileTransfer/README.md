@@ -33,9 +33,11 @@ and `CHUNK_SZ` is 4096
 
 the max payload size should always be less than `CHUNK_SZ` here for this to work nicely.
 
+```sh
 example usage: 
 python3 server.py
 python3 client.py awesomeface.png mydirec/awesomeface.png
+```
 
 This is kind of a trashier version of Benjamin N. Summerton's tutorial on udp file transfer
 
