@@ -1,13 +1,14 @@
-Snder          		Receiver
-                         <-REQF
-ACK->
-INFO->
-                         <-ACK
-                         <-REQB
-SEND->
-                         <-BYE
-BYE->
-
+```plaintext
+Sender                 Receiver
+                         <- REQF
+ACK ->
+INFO ->
+                         <- ACK
+                         <- REQB
+SEND ->
+                         <- BYE
+BYE ->
+```
 
 Payload (actual data being transfered)
 
